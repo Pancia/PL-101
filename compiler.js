@@ -1,6 +1,8 @@
 var endTime = function (time, expr) {
     if (expr.tag === 'note') {
         return time + expr.dur;
+    } else if (expr.tag === 'rest') {
+        return time + expr.dur;
     } else if (expr.tag === 'par') {
         return Math.max(
             endTime(time,expr.left),
@@ -9,8 +11,7 @@ var endTime = function (time, expr) {
     }
     return endTime(endTime(time, expr.left), expr.right);
 };
-// maybe some helper functions
-var tcomp = function(musexpr, time) {
+var compileT = function(musexpr, time) {
     if (musexpr.tag === 'note') {
         return {
             tag: 'note',
@@ -18,22 +19,27 @@ var tcomp = function(musexpr, time) {
             start: time,
             dur: musexpr.dur 
         };
-    } 
+    } else if (musexpr.tag === 'rest') {
+        return {
+            tag: 'rest',
+            start: time,
+            dur: musexpr.dur
+        };
+    }
     var l, r;
     if (musexpr.tag === 'par') {
-        l = tcomp(musexpr.left, time);
-        r = tcomp(musexpr.right, time);
+        l = compileT(musexpr.left, time);
+        r = compileT(musexpr.right, time);
         return [l,r];
-    } else {//tag === 'seq'
-        l = tcomp(musexpr.left, time);
-        r = tcomp(musexpr.right, 
+    } else {//if (tag === 'seq')
+        l = compileT(musexpr.left, time);
+        r = compileT(musexpr.right, 
                       endTime(time, musexpr.left));
         return [l,r];
     }
 };
-
 var compile = function (musexpr) {
-    var MUS = tcomp(musexpr,0);
+    var MUS = compileT(musexpr,0);
     if (MUS.length === undefined) {
         return [MUS];
     }
@@ -48,17 +54,31 @@ var compile = function (musexpr) {
     return NOTE;
 };
 
-var melody_mus = 
-    { tag: 'seq',
-      left: 
-       { tag: 'par',
-         left: { tag: 'note', pitch: 'a4', dur: 250 },
-         right: { tag: 'note', pitch: 'b4', dur: 500 } },
-      right:
-       { tag: 'seq',
-         left: { tag: 'note', pitch: 'c4', dur: 250 },
-         right: { tag: 'note', pitch: 'd4', dur: 500 } } };
+//WARNING: THERE BE TESTING DRAGONS BELOW
+var melody_mus = { 
+    tag: 'seq',
+    left: 
+        { tag: 'par',
+            left: { tag: 'note', pitch: 'a4', dur: 250 },
+            right: { tag: 'note', pitch: 'b4', dur: 500 } },
+    right:
+        { tag: 'seq',
+            left: { tag: 'rest', dur: 250 },
+            right: { tag: 'note', pitch: 'd4', dur: 500 } } 
+};
+var melody_note = [
+    {tag: 'note', pitch: 'a4', start: 0, dur: 250},
+    {tag: 'note', pitch: 'b4', start: 0, dur: 500},
+    {tag: 'rest', start: 500, dur: 250},
+    {tag: 'note', pitch: 'd4', start: 750, dur: 500}
+];
 
-console.log(melody_mus);
-console.log("");
+var assert = require('assert');
+console.log(melody_note);
 console.log(compile(melody_mus));
+assert.deepEqual(
+    compile(melody_mus),
+    melody_note,
+    "Compile() malfunction!"
+)
+console.log("Compiled successfully!");
